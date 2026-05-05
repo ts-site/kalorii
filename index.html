@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Food AI Stable</title>
+<title>Food AI</title>
 
 <style>
 *{box-sizing:border-box}
@@ -113,7 +113,11 @@ img{
 
 <script>
 
-// СТАБИЛЬНАЯ МОДЕЛЬ
+// 🔑 ВСТАВЬ СЮДА СВОЙ OPENROUTER API KEY
+// Пример: const OPENROUTER_API_KEY = "sk-or-v1-xxxxxxxx";
+const OPENROUTER_API_KEY = "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";
+
+// Рабочая стабильная модель
 const MODEL = "openai/gpt-4o-mini";
 
 function calc(){
@@ -138,16 +142,30 @@ function calc(){
   const deficit = norm - eat;
 
   const week = deficit * 7 / 7700;
+  const month = deficit * 30 / 7700;
 
-  document.getElementById("calcResult").textContent =
+  let text =
 `Базовый обмен: ${Math.round(bmr)} ккал
 
 Норма: ${Math.round(norm)} ккал
 
-Дефицит: ${Math.round(deficit)} ккал
+Ты ешь: ${eat} ккал
 
-Примерно жира в неделю:
-${week.toFixed(2)} кг`;
+Дефицит: ${Math.round(deficit)} ккал/день
+
+Примерно жира:
+За неделю: ${week.toFixed(2)} кг
+За месяц: ${month.toFixed(2)} кг`;
+
+  if(eat < 1200){
+    text += "\n\n⚠️ Очень мало калорий. Долго так держать опасно.";
+  }
+
+  if(deficit < 0){
+    text += "\n\nТы не в дефиците, а в профиците.";
+  }
+
+  document.getElementById("calcResult").textContent = text;
 
 }
 
@@ -165,9 +183,11 @@ document.getElementById("photo")
 
 async function analyzeFood(){
 
-  const key = prompt("Вставь OpenRouter API key");
-
-  if(!key){
+  if(
+    !OPENROUTER_API_KEY ||
+    OPENROUTER_API_KEY === "ВСТАВЬ_СЮДА_СВОЙ_API_KEY"
+  ){
+    alert("Сначала вставь OpenRouter API key в код файла");
     return;
   }
 
@@ -191,8 +211,10 @@ async function analyzeFood(){
       {
         method:"POST",
         headers:{
-          "Authorization":"Bearer "+key,
-          "Content-Type":"application/json"
+          "Authorization":"Bearer "+OPENROUTER_API_KEY,
+          "Content-Type":"application/json",
+          "HTTP-Referer": location.href,
+          "X-Title": "Food AI"
         },
         body:JSON.stringify({
           model:MODEL,
@@ -206,12 +228,14 @@ async function analyzeFood(){
 `Определи еду на фото.
 Напиши:
 - что это
+- примерный вес порции
 - калории
 - белки
 - жиры
 - углеводы
 
-Ответь по-русски кратко.`
+Ответь по-русски кратко.
+Если не уверен — напиши диапазон.`
                 },
                 {
                   type:"image_url",
@@ -234,6 +258,13 @@ async function analyzeFood(){
       .textContent =
       "Ошибка: " + data.error.message;
 
+      return;
+    }
+
+    if(!data.choices || !data.choices[0]){
+      document.getElementById("foodResult")
+      .textContent =
+      "Ошибка: модель не вернула ответ";
       return;
     }
 
